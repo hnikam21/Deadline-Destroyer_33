@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     HiOutlineCheck,
     HiOutlineClock,
     HiOutlineRefresh,
     HiOutlineArrowLeft,
+    HiOutlineSparkles,
 } from 'react-icons/hi';
 import { useTopics } from '../context/TopicContext';
 import {
@@ -15,6 +16,7 @@ import {
     getRetentionColor,
     formatDate,
 } from '../utils/spacedRepetition';
+import { summarizeTopic } from '../utils/geminiService';
 import SuccessAnimation from '../components/SuccessAnimation';
 import FlashcardMode from '../components/FlashcardMode';
 
@@ -40,11 +42,37 @@ export default function Revision() {
     const dueTopics = useMemo(() => topics.filter(isTopicDueToday), [topics]);
     const selectedTopic = topics.find((t) => t.id === selectedId);
 
+    // AI Summary state
+    const [aiSummary, setAiSummary] = useState(null);
+    const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+    const [aiSummaryError, setAiSummaryError] = useState('');
+    const [showAiSummary, setShowAiSummary] = useState(false);
+
     const handleMarkRevised = () => {
         if (!selectedTopic) return;
         markRevised(selectedTopic.id);
         setShowSuccess(true);
     };
+
+    const fetchAiSummary = useCallback(async () => {
+        if (!selectedTopic || aiSummaryLoading) return;
+        setAiSummaryLoading(true);
+        setAiSummaryError('');
+        try {
+            const result = await summarizeTopic(selectedTopic.title, selectedTopic.description);
+            if (result) {
+                setAiSummary(result);
+                setShowAiSummary(true);
+            } else {
+                setAiSummaryError('Not enough notes to summarize. Add more description first.');
+            }
+        } catch (err) {
+            console.error('AI Summary error:', err);
+            setAiSummaryError('Could not generate summary. Please try again.');
+        } finally {
+            setAiSummaryLoading(false);
+        }
+    }, [selectedTopic, aiSummaryLoading]);
 
     if (showFlashcards) {
         return (
@@ -110,6 +138,17 @@ export default function Revision() {
                                 >
                                     🎴 Flashcard
                                 </button>
+                                {selectedTopic.description && selectedTopic.description.length >= 20 && (
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={fetchAiSummary}
+                                        disabled={aiSummaryLoading}
+                                        style={{ gap: '4px' }}
+                                    >
+                                        <HiOutlineSparkles />
+                                        {aiSummaryLoading ? 'Thinking…' : '✨ AI Summary'}
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -133,6 +172,44 @@ export default function Revision() {
                                 />
                             </div>
                         </div>
+
+                        {/* ── AI Summary Panel ── */}
+                        <AnimatePresence>
+                            {aiSummaryError && (
+                                <motion.div
+                                    className="ai-summary-error"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                >
+                                    ⚠️ {aiSummaryError}
+                                </motion.div>
+                            )}
+                            {showAiSummary && aiSummary && (
+                                <motion.div
+                                    className="ai-summary-card"
+                                    initial={{ opacity: 0, y: -10, height: 0 }}
+                                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                    exit={{ opacity: 0, y: -10, height: 0 }}
+                                >
+                                    <div className="ai-summary-header">
+                                        <div className="ai-summary-title">
+                                            <HiOutlineSparkles className="ai-summary-icon" />
+                                            AI Summary
+                                        </div>
+                                        <button
+                                            className="ai-summary-close"
+                                            onClick={() => setShowAiSummary(false)}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <div className="ai-summary-content">
+                                        {aiSummary}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Tags */}
                         {selectedTopic.tags && selectedTopic.tags.length > 0 && (

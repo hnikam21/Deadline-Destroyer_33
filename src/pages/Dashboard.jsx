@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     HiOutlineBookOpen,
     HiOutlineCheck,
@@ -8,6 +8,8 @@ import {
     HiOutlineFire,
     HiOutlineExclamation,
     HiOutlineLightningBolt,
+    HiOutlineRefresh,
+    HiOutlineSparkles,
 } from 'react-icons/hi';
 import { useTopics } from '../context/TopicContext';
 import {
@@ -19,6 +21,7 @@ import {
     calculateStreak,
     formatDate,
 } from '../utils/spacedRepetition';
+import { analyzeLearningPace } from '../utils/geminiService';
 import SuccessAnimation from '../components/SuccessAnimation';
 
 const container = {
@@ -34,11 +37,24 @@ const item = {
     show: { opacity: 1, y: 0 },
 };
 
+/* ── Pace badge color mapping ── */
+const PACE_COLORS = {
+    crushing: { bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.25)', text: '#34D399' },
+    steady: { bg: 'rgba(99, 102, 241, 0.12)', border: 'rgba(99, 102, 241, 0.25)', text: '#A5B4FC' },
+    slipping: { bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.25)', text: '#FBBF24' },
+    new: { bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.25)', text: '#C4B5FD' },
+};
+
 export default function Dashboard() {
     const { topics, markRevised } = useTopics();
     const navigate = useNavigate();
     const [showSuccess, setShowSuccess] = useState(false);
     const [justRevised, setJustRevised] = useState(new Set());
+
+    // AI Coach state
+    const [aiCoach, setAiCoach] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState('');
 
     const todaysTopics = useMemo(() => topics.filter(isTopicDueToday), [topics]);
     const atRiskTopics = useMemo(
@@ -62,6 +78,33 @@ export default function Dashboard() {
 
     const streak = useMemo(() => calculateStreak(topics), [topics]);
     const pendingCount = todaysTopics.filter((t) => !justRevised.has(t.id)).length;
+
+    // ── AI Coach: fetch learning pace ──
+    const fetchPaceAnalysis = useCallback(async (force = false) => {
+        if (aiLoading) return;
+        if (force) {
+            // Clear cache so Gemini is called fresh
+            const keys = Object.keys(sessionStorage).filter(k => k.startsWith('recallx_ai_pace'));
+            keys.forEach(k => sessionStorage.removeItem(k));
+        }
+        setAiLoading(true);
+        setAiError('');
+        try {
+            const result = await analyzeLearningPace(topics);
+            setAiCoach(result);
+        } catch (err) {
+            console.error('AI Coach error:', err);
+            setAiError('Could not reach AI coach. Check your connection.');
+        } finally {
+            setAiLoading(false);
+        }
+    }, [topics, aiLoading]);
+
+    useEffect(() => {
+        if (topics.length >= 0 && !aiCoach && !aiLoading) {
+            fetchPaceAnalysis();
+        }
+    }, [topics.length]);
 
     const handleQuickRevise = (id) => {
         markRevised(id);
@@ -103,6 +146,8 @@ export default function Dashboard() {
             gradient: 'linear-gradient(135deg, #EF4444, #F87171)',
         },
     ];
+
+    const paceColors = aiCoach ? (PACE_COLORS[aiCoach.pace] || PACE_COLORS.steady) : PACE_COLORS.steady;
 
     return (
         <>
@@ -151,6 +196,92 @@ export default function Dashboard() {
                             <div className="stat-label">{stat.label}</div>
                         </motion.div>
                     ))}
+                </motion.div>
+
+                {/* ═══ AI COACH PANEL ═══ */}
+                <motion.div variants={item} className="ai-coach-card" id="ai-coach">
+                    <div className="ai-coach-header">
+                        <div className="ai-coach-title-row">
+                            <HiOutlineSparkles className="ai-coach-icon" />
+                            <h3>AI Learning Coach</h3>
+                        </div>
+                        <button
+                            className="ai-coach-refresh"
+                            onClick={() => fetchPaceAnalysis(true)}
+                            disabled={aiLoading}
+                            title="Refresh analysis"
+                        >
+                            <HiOutlineRefresh className={aiLoading ? 'ai-spin' : ''} />
+                        </button>
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                        {aiLoading && !aiCoach ? (
+                            <motion.div
+                                key="loading"
+                                className="ai-coach-skeleton"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                            >
+                                <div className="ai-skeleton-badge" />
+                                <div className="ai-skeleton-line ai-skeleton-long" />
+                                <div className="ai-skeleton-line ai-skeleton-medium" />
+                                <div className="ai-skeleton-pills">
+                                    <div className="ai-skeleton-pill" />
+                                    <div className="ai-skeleton-pill" />
+                                    <div className="ai-skeleton-pill" />
+                                </div>
+                            </motion.div>
+                        ) : aiError ? (
+                            <motion.div
+                                key="error"
+                                className="ai-coach-error"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                            >
+                                <span>⚠️ {aiError}</span>
+                                <button className="btn btn-ghost btn-sm" onClick={() => fetchPaceAnalysis(true)}>
+                                    Retry
+                                </button>
+                            </motion.div>
+                        ) : aiCoach ? (
+                            <motion.div
+                                key="result"
+                                className="ai-coach-body"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.4 }}
+                            >
+                                <div
+                                    className="ai-pace-badge"
+                                    style={{
+                                        background: paceColors.bg,
+                                        borderColor: paceColors.border,
+                                        color: paceColors.text,
+                                    }}
+                                >
+                                    <span className="ai-pace-emoji">{aiCoach.emoji}</span>
+                                    <span className="ai-pace-label">{aiCoach.label}</span>
+                                </div>
+
+                                <p className="ai-coach-message">{aiCoach.message}</p>
+
+                                {aiCoach.priorities && aiCoach.priorities.length > 0 && (
+                                    <div className="ai-priorities">
+                                        <span className="ai-priorities-label">🎯 Focus on:</span>
+                                        <div className="ai-priorities-list">
+                                            {aiCoach.priorities.map((p, i) => (
+                                                <span key={i} className="ai-priority-chip">{p}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
                 </motion.div>
 
                 {/* At Risk Warning */}
