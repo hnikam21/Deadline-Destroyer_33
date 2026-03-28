@@ -8,16 +8,18 @@ import AllTopics from './pages/AllTopics';
 import Revision from './pages/Revision';
 import Analytics from './pages/Analytics';
 import LoginPage from './pages/LoginPage';
-import { useEffect, useRef } from 'react';
+import IntroPage from './pages/IntroPage';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { seedIfEmpty } from './utils/seedData';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function ProtectedApp() {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, user } = useAuth();
     const seeded = useRef(false);
 
     useEffect(() => {
-        if (isAuthenticated && !seeded.current) {
-            const didSeed = seedIfEmpty();
+        if (isAuthenticated && user && !seeded.current) {
+            const didSeed = seedIfEmpty(user.id);
             if (didSeed) {
                 // Force reload to pick up seeded data into TopicContext
                 window.location.reload();
@@ -45,7 +47,7 @@ function ProtectedApp() {
     }
 
     return (
-        <TopicProvider>
+        <TopicProvider userId={user.id}>
             <div className="app-layout">
                 <Sidebar />
                 <main className="main-content">
@@ -64,10 +66,39 @@ function ProtectedApp() {
 }
 
 function App() {
+    const [showIntro, setShowIntro] = useState(() => {
+        // Show intro once per session
+        return !sessionStorage.getItem('recallx_intro_seen');
+    });
+
+    const dismissIntro = useCallback(() => {
+        sessionStorage.setItem('recallx_intro_seen', '1');
+        setShowIntro(false);
+    }, []);
+
     return (
         <AuthProvider>
             <Router>
-                <ProtectedApp />
+                <AnimatePresence mode="wait">
+                    {showIntro ? (
+                        <motion.div
+                            key="intro"
+                            exit={{ opacity: 0, scale: 0.96 }}
+                            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                            <IntroPage onEnter={dismissIntro} />
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="app"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.5, delay: 0.1 }}
+                        >
+                            <ProtectedApp />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </Router>
         </AuthProvider>
     );

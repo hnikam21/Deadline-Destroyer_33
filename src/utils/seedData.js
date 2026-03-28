@@ -325,10 +325,14 @@ export function generateSeedData() {
 }
 
 /**
- * Seeds localStorage with demo data if no topics exist.
+ * Seeds localStorage with demo data if no topics exist for the specific user.
  */
-export function seedIfEmpty() {
-    const STORAGE_KEY = 'recallx_topics';
+export function seedIfEmpty(userId) {
+    if (!userId) return false;
+    
+    // Fallback to global if needed or use user-specific prefix
+    const STORAGE_KEY = `recallx_topics_${userId}`;
+    
     try {
         const existing = localStorage.getItem(STORAGE_KEY);
         if (existing) {
