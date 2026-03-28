@@ -2032,3 +2032,293 @@ ul, ol {
     height: 90px;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   AI COACH & AI SUMMARY — Gemini-powered components
+   ═══════════════════════════════════════════════════ */
+
+/* ── AI Coach Card (Dashboard) ── */
+.ai-coach-card {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.ai-coach-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366F1, #A78BFA, #10B981);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.ai-coach-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ai-coach-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-coach-icon {
+  font-size: 1.2rem;
+  color: var(--primary-400);
+}
+
+.ai-coach-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ai-coach-refresh {
+  background: transparent;
+  border: 1px solid var(--border-glass);
+  color: var(--text-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ai-coach-refresh:hover:not(:disabled) {
+  color: var(--primary-400);
+  border-color: var(--primary-500);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.ai-coach-refresh:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ai-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Skeleton loading ── */
+.ai-coach-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-skeleton-badge {
+  width: 140px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, rgba(99,102,241,0.08) 25%, rgba(99,102,241,0.15) 50%, rgba(99,102,241,0.08) 75%);
+  background-size: 200% 100%;
+  animation: aiShimmer 1.5s ease-in-out infinite;
+}
+
+.ai-skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(148,163,184,0.06) 25%, rgba(148,163,184,0.12) 50%, rgba(148,163,184,0.06) 75%);
+  background-size: 200% 100%;
+  animation: aiShimmer 1.5s ease-in-out infinite;
+}
+
+.ai-skeleton-long { width: 90%; }
+.ai-skeleton-medium { width: 65%; }
+
+.ai-skeleton-pills {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-skeleton-pill {
+  width: 90px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, rgba(148,163,184,0.06) 25%, rgba(148,163,184,0.12) 50%, rgba(148,163,184,0.06) 75%);
+  background-size: 200% 100%;
+  animation: aiShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes aiShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Pace badge ── */
+.ai-pace-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid;
+  margin-bottom: 12px;
+  letter-spacing: 0.02em;
+}
+
+.ai-pace-emoji {
+  font-size: 1.1rem;
+}
+
+.ai-pace-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+/* ── Coach message ── */
+.ai-coach-message {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+/* ── Error state ── */
+.ai-coach-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--warning-400);
+}
+
+/* ── Priorities ── */
+.ai-priorities {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ai-priorities-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding-top: 5px;
+  white-space: nowrap;
+}
+
+.ai-priorities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-priority-chip {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary-300);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  transition: all var(--transition-fast);
+}
+
+.ai-priority-chip:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+/* ── AI Summary Card (Revision) ── */
+.ai-summary-card {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.ai-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ai-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary-300);
+}
+
+.ai-summary-icon {
+  font-size: 1.1rem;
+  color: var(--primary-400);
+}
+
+.ai-summary-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.ai-summary-close:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-primary);
+}
+
+.ai-summary-content {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.ai-summary-error {
+  padding: 12px 16px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--warning-400);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .ai-coach-card {
+    padding: 18px;
+  }
+  .ai-priorities {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
