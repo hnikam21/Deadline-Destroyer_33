@@ -68,6 +68,63 @@ export async function extractTextFromImage(file, onProgress) {
     }
 }
 
+// Common stop words to ignore in NLP tasks
+const STOP_WORDS = new Set([
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'for',
+    'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+    'before', 'after', 'above', 'below', 'between', 'and', 'but', 'or',
+    'not', 'no', 'nor', 'so', 'yet', 'both', 'either', 'neither', 'each',
+    'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some', 'such',
+    'than', 'too', 'very', 'just', 'also', 'about', 'up', 'out', 'if',
+    'then', 'that', 'this', 'these', 'those', 'it', 'its', 'he', 'she',
+    'they', 'them', 'we', 'us', 'you', 'your', 'my', 'his', 'her', 'our',
+    'their', 'what', 'which', 'who', 'whom', 'where', 'when', 'how', 'why',
+]);
+
+/**
+ * Heuristically extracts a title from the text.
+ * Looks for the first non-empty line that isn't too long.
+ * @param {string} text 
+ * @returns {string} Predicted title
+ */
+export function extractTitle(text) {
+    if (!text || text.trim().length === 0) return '';
+    const strings = text.split('\n').map(s => s.trim()).filter(s => s.length > 2);
+    for (const s of strings) {
+        if (s.length < 100) return s; // likely a title or heading
+    }
+    return 'Extracted Topic';
+}
+
+/**
+ * Extracts the most frequent relevant words as tags.
+ * @param {string} text
+ * @param {number} maxTags
+ * @returns {string[]} Array of tags
+ */
+export function extractTags(text, maxTags = 3) {
+    if (!text || text.trim().length === 0) return [];
+    const wordFreq = {};
+    const words = text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
+    
+    // additional filter: ignore purely numeric words
+    words.forEach(word => {
+        if (isNaN(word)) {
+            wordFreq[word] = (wordFreq[word] || 0) + 1;
+        }
+    });
+
+    return Object.keys(wordFreq)
+        .sort((a, b) => wordFreq[b] - wordFreq[a])
+        .slice(0, maxTags);
+}
+
 /**
  * Generate an extractive summary from text using TF-based sentence scoring.
  * Picks the top N most informative sentences.
@@ -91,21 +148,6 @@ export function summarizeText(text, maxSentences = 5) {
         return sentences.join(' ');
     }
 
-    // Common stop words to ignore in scoring
-    const stopWords = new Set([
-        'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-        'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'for',
-        'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-        'before', 'after', 'above', 'below', 'between', 'and', 'but', 'or',
-        'not', 'no', 'nor', 'so', 'yet', 'both', 'either', 'neither', 'each',
-        'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some', 'such',
-        'than', 'too', 'very', 'just', 'also', 'about', 'up', 'out', 'if',
-        'then', 'that', 'this', 'these', 'those', 'it', 'its', 'he', 'she',
-        'they', 'them', 'we', 'us', 'you', 'your', 'my', 'his', 'her', 'our',
-        'their', 'what', 'which', 'who', 'whom', 'where', 'when', 'how', 'why',
-    ]);
-
     // Build word frequency map
     const wordFreq = {};
     sentences.forEach((sentence) => {
@@ -113,7 +155,7 @@ export function summarizeText(text, maxSentences = 5) {
             .toLowerCase()
             .replace(/[^a-z0-9\s]/g, '')
             .split(/\s+/)
-            .filter((w) => w.length > 2 && !stopWords.has(w));
+            .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 
         words.forEach((word) => {
             wordFreq[word] = (wordFreq[word] || 0) + 1;
@@ -126,7 +168,7 @@ export function summarizeText(text, maxSentences = 5) {
             .toLowerCase()
             .replace(/[^a-z0-9\s]/g, '')
             .split(/\s+/)
-            .filter((w) => w.length > 2 && !stopWords.has(w));
+            .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 
         const score = words.reduce((sum, w) => sum + (wordFreq[w] || 0), 0);
         // Normalize by sentence length to avoid bias toward long sentences

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiOutlinePlus, HiOutlineX, HiOutlineCalendar, HiOutlineUpload, HiOutlineDocument, HiOutlinePhotograph } from 'react-icons/hi';
 import { useTopics } from '../context/TopicContext';
 import { getRevisionSchedulePreview } from '../utils/spacedRepetition';
-import { extractTextFromFile, summarizeText, formatFileSize } from '../utils/fileExtractor';
+import { extractTextFromFile, summarizeText, extractTitle, extractTags, formatFileSize } from '../utils/fileExtractor';
 import SuccessAnimation from '../components/SuccessAnimation';
 
 const container = {
@@ -179,7 +179,26 @@ export default function AddTopic() {
             await new Promise((r) => setTimeout(r, 400));
 
             const summary = summarizeText(rawText, 5);
+            const extractedTitle = extractTitle(rawText);
+            const extractedTags = extractTags(rawText, 3);
+
             setDescription((prev) => (prev ? prev + '\n\n' + summary : summary));
+            
+            // Set title if it's currently empty
+            if (!title.trim()) {
+                // Ensure title isn't too long or multi-line
+                const cleanTitle = extractedTitle.split('\n')[0].substring(0, 100).trim();
+                setTitle(cleanTitle);
+            }
+
+            // Add new tags that aren't already present
+            if (extractedTags.length > 0) {
+                setTags((prevTags) => {
+                    const newTags = extractedTags.filter(t => !prevTags.includes(t));
+                    return [...prevTags, ...newTags];
+                });
+            }
+
             setExtractSuccess(true);
             setProcessProgress(100);
         } catch (err) {
