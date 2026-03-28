@@ -1,119 +1,16 @@
-RecallX — Smart Knowledge Retention System
-📌 Overview
-RecallX is a productivity-focused web application designed to help users retain knowledge effectively using structured revision techniques (spaced repetition). It ensures that users don’t forget what they learn by providing timely revision reminders and progress tracking.
+# React + Vite
 
-🚨 Problem Statement
-People tend to forget a significant portion of what they learn within a few days due to lack of structured revision. Existing note-taking tools do not actively help users retain information over time.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-💡 Solution
-RecallX solves this by:
+Currently, two official plugins are available:
 
-Automatically scheduling revisions
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-Showing users what to revise daily
+## React Compiler
 
-Tracking learning progress and retention
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-Providing a structured system for long-term memory
+## Expanding the ESLint configuration
 
-🎯 Key Features
-✅ Core Features
-Add and manage learning topics
-
-Automatic revision scheduling (spaced repetition)
-
-Daily dashboard with revision tasks
-
-Mark topics as revised
-
-Progress tracking (revision count, status)
-
-🔥 Advanced / WOW Features
-Retention score (Weak / Medium / Strong)
-
-Smart alerts for topics at risk of being forgotten
-
-Flashcard-style revision (optional)
-
-Learning streak tracking
-
-📱 Application Structure
-🏠 Dashboard
-Displays today’s revision tasks
-
-Shows stats (total topics, completed, pending)
-
-Quick access to revise topics
-
-➕ Add Topic
-Input topic title and notes
-
-Automatically schedules revision cycle
-
-📚 All Topics
-View all topics with:
-
-Status
-
-Next revision date
-
-Revision count
-
-🔄 Revision Page
-Displays topic content
-
-Allows marking as revised
-
-📊 Analytics (Optional)
-Visual insights into progress and retention
-
-⚙️ How It Works
-User adds a topic
-
-System schedules revision dates
-
-Dashboard shows topics due today
-
-User revises and marks as done
-
-System updates progress and next revision
-
-🧠 Spaced Repetition Logic
-Day 1 → Learn
-
-Day 2 → Revise
-
-Day 5 → Revise
-
-Day 10 → Revise
-
-🛠️ Tech Stack
-Frontend: React / HTML-CSS-JS
-
-Storage: LocalStorage / Firebase
-
-Logic: JavaScript-based scheduling system
-
-🎯 Target Users
-Students
-
-Developers
-
-Competitive exam aspirants
-
-Lifelong learners
-
-🏁 Outcome
-Improved knowledge retention
-
-Structured learning system
-
-Better productivity and consistency
-
-🚀 Future Enhancements
-AI-generated summaries & flashcards
-
-Personalized learning recommendations
-
-Cross-device sync
-
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
