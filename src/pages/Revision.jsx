@@ -70,7 +70,7 @@ export default function Revision() {
             }
         } catch (err) {
             console.error('AI Summary error:', err);
-            setAiSummaryError('Could not generate summary. Please try again.');
+            setAiSummaryError(err.message || 'Could not generate summary. Please try again.');
         } finally {
             setAiSummaryLoading(false);
         }

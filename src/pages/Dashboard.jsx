@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -100,8 +100,11 @@ export default function Dashboard() {
         }
     }, [topics, aiLoading]);
 
+    // Auto-fetch AI coach once per mount, only if user has topics
+    const aiCoachFetched = useRef(false);
     useEffect(() => {
-        if (topics.length >= 0 && !aiCoach && !aiLoading) {
+        if (topics.length > 0 && !aiCoach && !aiLoading && !aiCoachFetched.current) {
+            aiCoachFetched.current = true;
             fetchPaceAnalysis();
         }
     }, [topics.length]);

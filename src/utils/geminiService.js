@@ -1,9 +1,11 @@
 /**
  * Gemini AI Service for RecallX
  * Uses Google Gemini 2.0 Flash via REST API
+ * 
+ * Includes: request queue, rate-limit cooldown, long backoff, graceful fallbacks.
  */
 
-const GEMINI_API_KEY = 'AIzaSyAf2Jh30uydTqBo4bzWsHYE7KQfS7ZJR7I';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // ─── Cache helpers ───────────────────────────────
@@ -29,41 +31,90 @@ function setCache(key, data) {
     } catch { /* quota exceeded — ignore */ }
 }
 
+// ─── Rate-limit cooldown ─────────────────────────
+// After hitting a 429, block all requests for a cooldown period
+let rateLimitCooldownUntil = 0;
+const COOLDOWN_MS = 90_000; // 90 seconds cooldown after a rate limit hit
+
+function isInCooldown() {
+    return Date.now() < rateLimitCooldownUntil;
+}
+
+function startCooldown() {
+    rateLimitCooldownUntil = Date.now() + COOLDOWN_MS;
+    console.warn(`Gemini rate limited — entering ${COOLDOWN_MS / 1000}s cooldown until ${new Date(rateLimitCooldownUntil).toLocaleTimeString()}`);
+}
+
+// ─── Serial request queue ────────────────────────
+// Ensures only one Gemini call runs at a time to avoid burning through the free tier
+let queuePromise = Promise.resolve();
+
+function enqueue(fn) {
+    queuePromise = queuePromise.then(fn, fn);
+    return queuePromise;
+}
+
 // ─── Core API call with retry for rate limits ───
 async function callGemini(prompt, retries = 3) {
-    for (let attempt = 0; attempt < retries; attempt++) {
-        const res = await fetch(GEMINI_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1024,
-                },
-            }),
-        });
-
-        if (res.status === 429) {
-            // Rate limited — wait and retry
-            const waitSec = [3, 8, 15][attempt] || 10;
-            console.warn(`Gemini rate limited (attempt ${attempt + 1}/${retries}), retrying in ${waitSec}s...`);
-            await new Promise(r => setTimeout(r, waitSec * 1000));
-            continue;
-        }
-
-        if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            throw new Error(`Gemini API error (${res.status}): ${errText}`);
-        }
-
-        const json = await res.json();
-        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error('Empty response from Gemini');
-        return text.trim();
+    if (!GEMINI_API_KEY) {
+        throw new Error('Gemini API key is missing. Please add VITE_GEMINI_API_KEY to your .env file.');
     }
 
-    throw new Error('Gemini API rate limit exceeded. Please wait a moment and try again.');
+    if (isInCooldown()) {
+        const remaining = Math.ceil((rateLimitCooldownUntil - Date.now()) / 1000);
+        throw new Error(`Rate limited — please wait ${remaining}s before trying again.`);
+    }
+
+    // Wrap the actual call in the serial queue
+    return enqueue(async () => {
+        for (let attempt = 0; attempt < retries; attempt++) {
+            // Re-check cooldown before each attempt
+            if (isInCooldown()) {
+                const remaining = Math.ceil((rateLimitCooldownUntil - Date.now()) / 1000);
+                throw new Error(`Rate limited — please wait ${remaining}s before trying again.`);
+            }
+
+            const res = await fetch(GEMINI_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 1024,
+                    },
+                }),
+            });
+
+            if (res.status === 429) {
+                // Rate limited — longer exponential backoff
+                const waitSec = [10, 30, 60][attempt] || 30;
+                console.warn(`Gemini rate limited (attempt ${attempt + 1}/${retries}), retrying in ${waitSec}s...`);
+
+                if (attempt === retries - 1) {
+                    // Last attempt failed — start global cooldown
+                    startCooldown();
+                    throw new Error('Gemini API rate limit exceeded. Please wait about 90 seconds and try again.');
+                }
+
+                await new Promise(r => setTimeout(r, waitSec * 1000));
+                continue;
+            }
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                throw new Error(`Gemini API error (${res.status}): ${errText}`);
+            }
+
+            const json = await res.json();
+            const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('Empty response from Gemini');
+            return text.trim();
+        }
+
+        startCooldown();
+        throw new Error('Gemini API rate limit exceeded. Please wait about 90 seconds and try again.');
+    });
 }
 
 // ─── 1. Summarize a topic ────────────────────────
@@ -76,7 +127,9 @@ export async function summarizeTopic(title, description) {
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const prompt = `You are a study assistant. A student is learning the topic "${title}".
+    // Try Gemini first, fall back to local
+    try {
+        const prompt = `You are a study assistant. A student is learning the topic "${title}".
 
 Here are their notes:
 """
@@ -93,9 +146,16 @@ Provide a concise, well-structured summary to help them revise quickly. Format:
 
 Keep it short and punchy — this is for quick revision, not a textbook.`;
 
-    const result = await callGemini(prompt);
-    setCache(cacheKey, result);
-    return result;
+        const result = await callGemini(prompt);
+        setCache(cacheKey, result);
+        return result;
+    } catch (err) {
+        console.warn('Gemini summarize failed, using local fallback:', err.message);
+        const { localSummarize } = await import('./localAI.js');
+        const local = localSummarize(title, description);
+        if (local) setCache(cacheKey, local);
+        return local;
+    }
 }
 
 // ─── 2. Generate MCQ Test ──────────────────────────
@@ -104,7 +164,8 @@ export async function generateMCQTest(title, description) {
         throw new Error('Not enough notes to generate a quiz. Please add more description.');
     }
 
-    const prompt = `You are a strict but fair teacher generating a 5-question multiple-choice quiz on the topic "${title}".
+    try {
+        const prompt = `You are a strict but fair teacher generating a 5-question multiple-choice quiz on the topic "${title}".
 
 Here are the student's study notes:
 """
@@ -127,9 +188,7 @@ Return the result in EXACTLY this JSON format (no markdown code blocks, just raw
 - Make exactly 5 questions.
 - Provide precisely 4 options per question.`;
 
-    const raw = await callGemini(prompt);
-    
-    try {
+        const raw = await callGemini(prompt);
         let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
         const parsed = JSON.parse(cleaned);
         if (!Array.isArray(parsed) || parsed.length !== 5) {
@@ -137,21 +196,19 @@ Return the result in EXACTLY this JSON format (no markdown code blocks, just raw
         }
         return parsed;
     } catch (err) {
-        console.error('Failed to parse MCQ JSON:', err, raw);
-        throw new Error('Failed to generate test. Please try again.');
+        console.warn('Gemini MCQ failed, using local fallback:', err.message);
+        const { localGenerateMCQ } = await import('./localAI.js');
+        return localGenerateMCQ(title, description);
     }
 }
 
 // ─── 3. Analyze learning pace ────────────────────
 export async function analyzeLearningPace(topics) {
+    // Import local fallback up front
+    const { localAnalyzePace } = await import('./localAI.js');
+
     if (!topics || topics.length === 0) {
-        return {
-            pace: 'new',
-            emoji: '🆕',
-            label: 'Just Started',
-            message: 'Welcome to RecallX! Add your first topic to begin your learning journey.',
-            priorities: [],
-        };
+        return localAnalyzePace(topics);
     }
 
     const cacheKey = `recallx_ai_pace_${topics.length}_${topics.reduce((s, t) => s + t.revisionCount, 0)}`;
@@ -210,7 +267,8 @@ export async function analyzeLearningPace(topics) {
         .map(t => `- "${t.title}": ${t.revisionCount || 0} revisions, ${overdueTopics.includes(t) ? 'OVERDUE' : 'on track'}`)
         .join('\n');
 
-    const prompt = `You are an AI learning coach for a spaced repetition study app called RecallX.
+    try {
+        const prompt = `You are an AI learning coach for a spaced repetition study app called RecallX.
 
 Here is the student's data:
 - Total topics: ${totalTopics}
@@ -242,7 +300,6 @@ Rules:
 - priorities = the 3 topics most in need of revision (weakest/overdue first)
 - Keep the message warm but direct. Be specific.`;
 
-    try {
         const raw = await callGemini(prompt);
 
         // Parse JSON — handle cases where Gemini wraps in code fences
@@ -260,21 +317,9 @@ Rules:
         setCache(cacheKey, result);
         return result;
     } catch (err) {
-        console.warn('Gemini pace analysis parse error:', err);
-        // Fallback based on simple heuristics
-        const isSlipping = overdueTopics.length > totalTopics * 0.4;
-        const isCrushing = last7Days.size >= 5 && strongTopics.length >= totalTopics * 0.3;
-
-        return {
-            pace: isSlipping ? 'slipping' : isCrushing ? 'crushing' : 'steady',
-            emoji: isSlipping ? '⚠️' : isCrushing ? '🚀' : '📈',
-            label: isSlipping ? 'Falling Behind' : isCrushing ? 'Crushing It' : 'Steady Progress',
-            message: isSlipping
-                ? `You have ${overdueTopics.length} overdue topics. Try to revise at least a few today to get back on track!`
-                : isCrushing
-                    ? `Amazing work! You've been consistent and ${strongTopics.length} topics are strong. Keep up this momentum!`
-                    : `You're making progress. Focus on your weakest topics to level up faster.`,
-            priorities: overdueTopics.slice(0, 3).map(t => t.title),
-        };
+        console.warn('Gemini pace analysis failed, using local fallback:', err.message);
+        const result = localAnalyzePace(topics);
+        setCache(cacheKey, result);
+        return result;
     }
 }
