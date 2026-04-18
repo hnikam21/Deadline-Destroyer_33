@@ -16,14 +16,19 @@ Say goodbye to forgetting important concepts and hello to a structured, data-dri
 
 ### 🤖 Google Gemini AI Integration
 RecallX acts as your personal study companion using the powerful `gemini-2.0-flash` model:
-* **AI Learning Coach (Dashboard)**: Analyzes your revision history, streak data, overdue topics, and **test scores** to detect your 'learning pace' (e.g., 🚀 Crushing It, ⚠️ Slipping). It delivers highly personalized tactical advice and prioritizes what you should study next.
+* **🧠 Intelligent AI Coach**: Analyzes your complete revision history, streak data, overdue topics, and **MCQ test scores** to detect your exact 'learning pace' (e.g., 🚀 Crushing It, ⚠️ Slipping). It acts as a personalized tutor, delivering tailored tactical advice and prioritizing what you need to study next.
 * **✨ AI Topic Summary (Revision)**: Need a quick refresher? Click the AI Summary button on any detailed topic to generate concise, bulleted recaps featuring **Key Concepts**, **Things to Remember**, and **Study Tips**.
-* **📝 AI Quiz Generator**: Dynamically generate a 5-question multiple-choice test based *only* on the notes of a specific topic to test your knowledge. Scores are saved and fed back to the AI Coach.
+* **📝 AI-Powered MCQ Quiz Engine**: Move beyond passive reading! Dynamically generate a structured 5-question Multiple-Choice Quiz based *strictly* on a topic's custom notes. Enjoy real-time strict grading, visual score tracking, and automated feedback loops that train the AI Coach.
 
 ### 🗓️ Spaced Repetition Engine
 * **Dynamic Scheduling**: Automatically calculates optimal intervals (1, 2, 5, 10, 20, 30 days) to revise topics just as you are about to forget them.
 * **Retention Tracking**: Topics are graded as **Weak**, **Medium**, or **Strong** based on the number of successful revisions.
 * **At-Risk Alerts**: The dashboard flags topics that are overdue or slipping from memory.
+
+### 📅 External Calendar Integration
+* **Universal Calendar Sync**: Export your upcoming spaced repetition schedules directly to Apple Calendar, Outlook, or Google Calendar using the native `iCalendar (.ics)` API standard.
+* **Bulk Export Tool**: Download all due revisions globally with a single click, perfectly preventing clutter from past completed revisions.
+* **Smart Reminders**: Generated schedule files structurally align to strict RFC 5545 formatting, automatically triggering OS-level push notifications exactly when your study session begins in your local timezone.
 
 ### 🎴 Smart Flashcards, Testing & Active Recall
 * **Distraction-Free Mode**: Focused flip-card UI for testing yourself on concepts without glancing at the answers too early.
